@@ -57,6 +57,14 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        indigo: "hsl(var(--indigo))",
+        violet: "hsl(var(--violet))",
+        rose: "hsl(var(--rose))",
+      },
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-glow': 'var(--gradient-glow)',
+        'gradient-subtle': 'var(--gradient-subtle)',
       },
       borderRadius: {
         lg: "var(--radius)",
