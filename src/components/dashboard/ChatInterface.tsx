@@ -1,191 +1,116 @@
-import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Send, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
+import { ChartRenderer } from "@/components/charts/ChartRenderer";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 interface Message {
-  id: string;
   role: "user" | "assistant";
   content: string;
-  created_at: string;
+  chart?: {
+    type: 'bar' | 'line' | 'pie' | 'area';
+    data: any[];
+    config: any;
+  };
 }
 
-const ChatInterface = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+export default function ChatInterface() {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "assistant", content: "Hello! I'm Nova, your AI data analyst. Upload a dataset to get started, or ask me anything about your data." }
+  ]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    loadMessages();
-    
-    // Subscribe to new messages
-    const channel = supabase
-      .channel("messages")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
-
-  const loadMessages = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true })
-      .limit(50);
-
-    if (error) {
-      console.error("Error loading messages:", error);
-      return;
-    }
-
-    if (data) {
-      setMessages(data.map(msg => ({
-        id: msg.id,
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-        created_at: msg.created_at,
-      })));
-    }
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
     setInput("");
-    setLoading(true);
+    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    setIsLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      // Save user message
-      await supabase.from("messages").insert({
-        user_id: user.id,
-        role: "user",
-        content: userMessage,
-      });
-
-      // Call query edge function
-      const { data, error } = await supabase.functions.invoke("query", {
-        body: { message: userMessage },
+      const { data, error } = await supabase.functions.invoke('query', {
+        body: { message: userMessage }
       });
 
       if (error) throw error;
 
-      // Save assistant response
-      await supabase.from("messages").insert({
-        user_id: user.id,
-        role: "assistant",
-        content: data.response,
-        metadata: data.metadata,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      const assistantMessage: Message = { 
+        role: "assistant", 
+        content: data.response || "I apologize, but I couldn't process that request."
+      };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+      if (data.chart) {
+        assistantMessage.chart = data.chart;
+      }
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("Failed to get response");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Header */}
-      <div className="glass-card border-b border-border p-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold gradient-text">Chat with NOVA</h1>
-        </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          Ask questions about your data in natural language
-        </p>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        <AnimatePresence>
-          {messages.length === 0 && !loading && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center py-12"
-            >
-              <Sparkles className="h-16 w-16 text-primary mx-auto mb-4 opacity-50" />
-              <h2 className="text-2xl font-bold gradient-text mb-2">
-                Welcome to NOVA
-              </h2>
-              <p className="text-muted-foreground">
-                Upload a dataset and start asking questions
-              </p>
-            </motion.div>
-          )}
-
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+    <div className="flex flex-col h-[calc(100vh-12rem)]">
+      <ScrollArea className="flex-1 pr-4">
+        <div className="space-y-4 pb-4">
+          {messages.map((message, index) => (
+            <div key={index}>
+              <MessageBubble message={message} />
+              {message.chart && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card p-6 rounded-2xl mt-4 ml-12"
+                >
+                  <ChartRenderer
+                    type={message.chart.type}
+                    data={message.chart.data}
+                    config={message.chart.config}
+                  />
+                </motion.div>
+              )}
+            </div>
           ))}
+          {isLoading && <TypingIndicator />}
+        </div>
+      </ScrollArea>
 
-          {loading && <TypingIndicator />}
-        </AnimatePresence>
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="glass-card border-t border-border p-4">
+      <form onSubmit={handleSubmit} className="glass-card p-4 rounded-2xl mt-4">
         <div className="flex gap-2">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your data..."
-            className="resize-none min-h-[60px]"
-            disabled={loading}
+            placeholder="Ask Nova about your data..."
+            className="min-h-[60px] resize-none bg-background/50 border-border/50 focus:border-primary"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
           />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || loading}
+          <Button 
+            type="submit" 
             size="icon"
-            className="h-[60px] w-[60px] rounded-xl"
+            disabled={isLoading || !input.trim()}
+            className="h-[60px] w-[60px]"
           >
             <Send className="h-5 w-5" />
           </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
-};
-
-export default ChatInterface;
+}
