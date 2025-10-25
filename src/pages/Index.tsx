@@ -52,16 +52,17 @@ const Index = () => {
       <section className="max-w-7xl mx-auto px-4 py-20 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-3 gap-8">
           {[
-            { icon: Database, title: "Upload & Explore", desc: "Drop your CSV files and start exploring instantly" },
-            { icon: Lightbulb, title: "AI Insights", desc: "Get poetic, actionable insights from your data" },
-            { icon: BarChart3, title: "Animated Charts", desc: "Beautiful visualizations that bring data to life" },
+            { icon: Database, title: "Upload & Explore", desc: "Drop your CSV files and start exploring instantly", path: "/explorer" },
+            { icon: Lightbulb, title: "AI Insights", desc: "Get poetic, actionable insights from your data", path: "/insights" },
+            { icon: BarChart3, title: "Animated Charts", desc: "Beautiful visualizations that bring data to life", path: "/dashboard" },
           ].map((feature, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.2 }}
-              className="glass-card p-8 rounded-2xl text-center hover:glow transition-all"
+              onClick={() => navigate(feature.path)}
+              className="glass-card p-8 rounded-2xl text-center hover:glow transition-all cursor-pointer"
             >
               <feature.icon className="h-12 w-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
