@@ -11,8 +11,10 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 interface Message {
+  id: string;
   role: "user" | "assistant";
   content: string;
+  created_at: string;
   chart?: {
     type: 'bar' | 'line' | 'pie' | 'area';
     data: any[];
@@ -22,7 +24,12 @@ interface Message {
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Hello! I'm Nova, your AI data analyst. Upload a dataset to get started, or ask me anything about your data." }
+    { 
+      id: '1',
+      role: "assistant", 
+      content: "Hello! I'm Nova, your AI data analyst. Upload a dataset to get started, or ask me anything about your data.",
+      created_at: new Date().toISOString()
+    }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -32,8 +39,15 @@ export default function ChatInterface() {
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
+    const messageId = Date.now().toString();
+    const timestamp = new Date().toISOString();
     setInput("");
-    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    setMessages(prev => [...prev, { 
+      id: messageId, 
+      role: "user", 
+      content: userMessage,
+      created_at: timestamp
+    }]);
     setIsLoading(true);
 
     try {
@@ -44,8 +58,10 @@ export default function ChatInterface() {
       if (error) throw error;
 
       const assistantMessage: Message = { 
+        id: `${messageId}-response`,
         role: "assistant", 
-        content: data.response || "I apologize, but I couldn't process that request."
+        content: data.response || "I apologize, but I couldn't process that request.",
+        created_at: new Date().toISOString()
       };
 
       if (data.chart) {
